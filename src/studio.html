@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Taipei / Between the Leaves</title>
+<style>
+:root{--bg:#0b0d0c;--panel:#141815;--line:#262c27;--ink:#e9e1cf;--mute:#9a9a88;--acc:#e8a456;--acc2:#7fb069}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.app{display:flex;gap:16px;padding:16px;min-height:100%;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+.stage{position:relative;flex:0 1 auto;line-height:0}
+#scene{display:block;height:calc(100vh - 32px);max-height:1024px;width:auto;max-width:calc(100vw - 32px);aspect-ratio:948/1024;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair;touch-action:none;border-radius:4px;background:#000;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.panel{flex:0 0 300px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:14px}
+h1{margin:0;font-size:14px;letter-spacing:.08em;text-transform:uppercase}
+h1 span{color:var(--mute);font-weight:400}
+.sec{display:flex;flex-direction:column;gap:7px}
+.lab{color:var(--mute);font-size:11px;letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between}
+.seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{flex:1;border:0;border-right:1px solid var(--line);background:transparent;color:var(--ink);padding:9px 4px;font:inherit;cursor:pointer;min-height:36px}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true]{background:#2a2219;color:var(--acc)}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#1b201c;color:var(--ink);border-radius:4px;padding:8px 10px;font:inherit;cursor:pointer;min-height:36px}
+.btn:hover{border-color:#3d463f}.btn[aria-pressed=true]{color:var(--acc2);border-color:#3f5a35}
+.btn.primary{color:var(--acc);border-color:#5a4329}
+input[type=range]{width:100%;accent-color:var(--acc)}
+select{background:#1b201c;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:8px;font:inherit}
+.hint{color:var(--mute);font-size:11px}
+kbd{border:1px solid var(--line);border-radius:3px;padding:0 4px;color:var(--ink)}
+@media (max-width:900px){#scene{height:auto;width:calc(100vw - 32px)}.panel{flex:1 1 100%}}
+.stage:fullscreen{display:flex;align-items:center;justify-content:center;background:#000}
+.stage:fullscreen #scene{height:100vh;max-height:none;max-width:100vw}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage"><canvas id="scene" width="948" height="1024" aria-label="Animated pixel-art view of Taipei 101 through leaves"></canvas></div>
+  <div class="panel">
+    <h1>Taipei <span>/ between the leaves</span></h1>
+    <div class="sec"><div class="lab">Scene</div>
+      <div class="seg" id="mode"><button data-v="illustrated" aria-pressed="true">Illustrated</button><button data-v="faithful" aria-pressed="false">Photo study</button></div>
+    </div>
+    <div class="sec"><div class="lab"><span>Light</span><span id="moodv"></span></div>
+      <div class="seg" id="moods"><button data-v="0">Day</button><button data-v="1">Golden</button><button data-v="2">Blue</button><button data-v="3">Night</button></div>
+      <input type="range" id="mood" min="0" max="3" step="0.01" value="1" aria-label="Fine light">
+      <div class="row"><button class="btn" id="cycle" aria-pressed="false">Light cycle</button><button class="btn" id="rain" aria-pressed="false">Rain</button><button class="btn" id="audio" aria-pressed="false">Sound</button></div>
+    </div>
+    <div class="sec"><div class="lab"><span>Wind</span><span id="windv"></span></div>
+      <input type="range" id="wind" min="0" max="1" step="0.01" value="0.45" aria-label="Wind strength">
+      <button class="btn primary" id="gust">Send a gust</button>
+      <div class="hint">Click or tap the scene to gust from that spot.</div>
+    </div>
+    <div class="sec"><div class="lab"><span>Timeline</span><span id="tv">0.00 s</span></div>
+      <input type="range" id="scrub" min="0" max="19.99" step="0.01" value="0" aria-label="Timeline">
+      <div class="row"><button class="btn" id="play">Pause</button><button class="btn" id="restart">Restart</button><button class="btn" id="fs">Fullscreen</button></div>
+    </div>
+    <div class="sec"><div class="lab">Output</div>
+      <div class="row"><button class="btn" id="png">Save PNG</button>
+        <select id="nframes" aria-label="Frame count"><option value="48">48 frames (2.4 fps)</option><option value="240">240 frames (12 fps)</option><option value="480">480 frames (24 fps)</option></select>
+        <button class="btn" id="exp">Export frames</button></div>
+      <div class="hint" id="expv"></div>
+    </div>
+    <div class="hint"><kbd>Space</kbd> play · <kbd>R</kbd> restart · <kbd>G</kbd> gust · <kbd>F</kbd> fullscreen · <kbd>S</kbd> save</div>
+  </div>
+</div>
+<script>/*ASSETS*/</script>
+<script>/*ENGINE*/</script>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)}, cv=$('scene'), world=null, scrubbing=false;
+  var names=['Day','Golden','Blue hour','Night'];
+  TaipeiWorld.create(cv,{}).then(function(w){
+    world=w; window.world=w;
+    w.on(sync); sync(w.getState());
+  }).catch(function(e){console.error(e)});
+  function sync(s){
+    [].forEach.call($('mode').children,function(b){b.setAttribute('aria-pressed',b.dataset.v===s.mode)});
+    [].forEach.call($('moods').children,function(b){b.setAttribute('aria-pressed',Math.abs(s.mood-b.dataset.v)<0.5)});
+    if(document.activeElement!==$('mood'))$('mood').value=s.mood;
+    $('moodv').textContent=names[Math.round(s.mood)];
+    $('windv').textContent=Math.round(s.wind*100)+'%';
+    $('cycle').setAttribute('aria-pressed',s.cycle);$('rain').setAttribute('aria-pressed',s.rain);$('audio').setAttribute('aria-pressed',s.audio);
+    $('play').textContent=s.playing?'Pause':'Play';
+    if(!scrubbing)$('scrub').value=s.t;
+    $('tv').textContent=s.t.toFixed(2)+' s';
+  }
+  function W(){return world}
+  $('mode').onclick=function(e){if(e.target.dataset.v&&W())world.setMode(e.target.dataset.v)};
+  $('moods').onclick=function(e){if(e.target.dataset.v&&W()){world.setCycle(false);world.setMood(+e.target.dataset.v)}};
+  $('mood').oninput=function(){W()&&(world.setCycle(false),world.setMood(this.value))};
+  $('wind').oninput=function(){W()&&world.setWind(this.value)};
+  $('cycle').onclick=function(){W()&&world.setCycle(!world.cycle)};
+  $('rain').onclick=function(){W()&&world.setRain(!world.rain)};
+  $('audio').onclick=function(){W()&&world.setAudio(!world.audio.on)};
+  $('gust').onclick=function(){W()&&world.gust()};
+  $('play').onclick=function(){W()&&world.togglePlay()};
+  $('restart').onclick=function(){W()&&world.restart()};
+  $('scrub').oninput=function(){scrubbing=true;W()&&world.seek(this.value)};
+  $('scrub').onchange=function(){scrubbing=false};
+  $('png').onclick=function(){W()&&world.savePNG()};
+  $('fs').onclick=toggleFS;
+  $('exp').onclick=function(){if(!W())return;var n=+$('nframes').value;
+    world.exportFrames(n,function(i,c){$('expv').textContent='Rendering '+i+' / '+c+'…'}).then(function(){$('expv').textContent='Exported '+n+' frames + manifest.json'})};
+  function toggleFS(){var s=$('stage');if(document.fullscreenElement)document.exitFullscreen();else if(s.requestFullscreen)s.requestFullscreen()}
+  function local(e){var r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height]}
+  cv.addEventListener('pointermove',function(e){if(!W())return;var p=local(e);world.setPointer(p[0]*2-1,p[1]*2-1)});
+  cv.addEventListener('pointerleave',function(){W()&&world.setPointer(0,0)});
+  cv.addEventListener('pointerdown',function(e){if(!W())return;var p=local(e);world.gust(p[0]*948,p[1]*1024,1)});
+  document.addEventListener('keydown',function(e){if(!W()||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)&&e.key!==' ')return;
+    var k=e.key.toLowerCase();
+    if(k===' '){e.preventDefault();world.togglePlay()}else if(k==='r')world.restart();else if(k==='g')world.gust();else if(k==='f')toggleFS();else if(k==='s')world.savePNG();});
+})();
+</script>
+</body>
+</html>
